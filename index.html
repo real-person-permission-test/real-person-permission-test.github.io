@@ -55,7 +55,9 @@
         document.querySelector('.log').appendChild(p)
       }
       
-      onTorrent('magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10');
+      client.add('magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10', {
+          announce: announcelist
+      }, onTorrent);
     </script>
   </body>
 </html>
