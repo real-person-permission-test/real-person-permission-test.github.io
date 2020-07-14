@@ -1,15 +1,6 @@
 <!doctype html>
 <html>
   <body>
-    <h1>Download files using the WebTorrent protocol (BitTorrent over WebRTC).</h1>
-
-    <form>
-      <label for="torrentId">Download from a magnet link: </label>
-      <input name="torrentId", placeholder="magnet:" value="magnet:?xt=urn:btih:d5b304b188e852838aa9e4f11454334692255975">
-      <button type="submit">Download</button>
-    </form>
-
-    <h2>Log</h2>
     <div class="log"></div>
 
     <!-- Include the latest version of WebTorrent -->
@@ -26,16 +17,6 @@
 
       client.on('error', function (err) {
         console.error('ERROR: ' + err.message)
-      })
-
-      document.querySelector('form').addEventListener('submit', function (e) {
-        e.preventDefault() // Prevent page refresh
-
-        var torrentId = document.querySelector('form input[name=torrentId]').value
-        log('Adding ' + torrentId)
-        client.add(torrentId, {
-            announce: announcelist
-        }, onTorrent)
       })
 
       function onTorrent (torrent) {
@@ -71,8 +52,10 @@
       function log (str) {
         var p = document.createElement('p')
         p.innerHTML = str
-        // document.querySelector('.log').appendChild(p)
+        document.querySelector('.log').appendChild(p)
       }
+      
+      onTorrent('magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10');
     </script>
   </body>
 </html>
