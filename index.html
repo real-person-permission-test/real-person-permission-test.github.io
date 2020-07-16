@@ -1,160 +1,44 @@
-<!doctype html>
 <html>
   <body>
-    <img id="qr"/>
-    <div class="log"></div>
-
-    <!-- Include the latest version of WebTorrent -->
-    
-    <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js" integrity="sha256-PsU1wASu6yJXhdjpP7M7+Z9S45m9ffwBlptWKbrqUTE=" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/simple-peer@latest/simplepeer.min.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@latest/build/qrcode.min.js" crossorigin="anonymous"></script>
-
+    <style>
+      #outgoing {
+        width: 600px;
+        word-wrap: break-word;
+        white-space: normal;
+      }
+    </style>
+    <form>
+      <textarea id="incoming"></textarea>
+      <button type="submit">submit</button>
+    </form>
+    <pre id="outgoing"></pre>
+    <script src="https://cdn.jsdelivr.net/npm/simple-peer@9.7.2/simplepeer.min.js" crossorigin="anonymous"></script>
     <script>
-      const freeIceServers = [
-          {
-            username: undefined,
-            credential: undefined,
-            url: 'stun:stun.l.google.com:19302',
-            urls: [ 'stun:stun.l.google.com:19302' ]
-          },
-          {
-            username: undefined,
-            credential: undefined,
-            url: 'stun:stun4.l.google.com:19302',
-            urls: [ 'stun:stun4.l.google.com:19302' ]
-          }
-      ];
-
-      const rtcConfig = {
-        ...SimplePeer.config,
-        iceServers: freeIceServers
-      };
-      
-      const client = new WebTorrent({
-        tracker: { rtcConfig }
-      });
-      
-      const textEncoder = new TextEncoder;
-      const textDecoder = new TextDecoder;
-      const naclTestString = 'apple cherry kiwi grapes';
-      const announcelist = [
-        'wss://tracker.btorrent.xyz',
-        'wss://tracker.openwebtorrent.com',
-        'wss://tracker.fastcast.nz'
-      ];
-      
-      const queryString = window.location.search;
-      const urlParams = new URLSearchParams(queryString);
-      const hash = urlParams.get('h');
-      
-      function testNacl () {
-        const keyPair = nacl.sign.keyPair();
-        const encoded = nacl.sign(textEncoder.encode(naclTestString), keyPair.secretKey);
-        const decoded = textDecoder.decode(nacl.sign.open(encoded, keyPair.publicKey));
-        return naclTestString === decoded;
-      }
-      
-      function fromHexString (hexString) {
-        return new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-      }
-
-      function toHexString (bytes) {
-        return bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
-      }
-      
-      function selfUrlWithMagnet (magnetURI) {
-        var newUrl = new URL(window.location.pathname, window.location.href);
-        newUrl.searchParams.set('h', magnetURI);
-        return newUrl.href;
-      }
-
-      function log (str) {
-        var p = document.createElement('p')
-        p.innerHTML = str
-        document.querySelector('.log').appendChild(p)
-        console.log(str);
-      }
-      
-      async function qr (str, scale = 2) {
-        document.getElementById('qr').src = await QRCode.toDataURL(str, {scale});
-      }
-      
-      function seedFiles (files) {
-        log('got files: ' + files.length);
-        files.forEach(function (file) {
-          log(' - ' + file.name + ' (' + file.size + ' bytes)');
-        });
-        
-        if (files.length === 0) return;
-        
-        log('Start seeding ' + files.length + ' files')
-        client.seed(files, function (torrent) {
-            log('Client is seeding ' + torrent.magnetURI);
-        });
-      }
-      
-      function onTorrent (torrent) {
-        log('Got torrent metadata!')
-        log(
-          'Torrent info hash: ' + torrent.infoHash + ' ' +
-          '<a href="' + torrent.magnetURI + '" target="_blank">[Magnet URI]</a> ' +
-          '<a href="' + torrent.torrentFileBlobURL + '" target="_blank" download="' + torrent.name + '.torrent">[Download .torrent]</a>'
-        )
-
-        qr(selfUrlWithMagnet(torrent.magnetURI));
-        ;
-
-        // Print out progress every 5 seconds
-        var interval = setInterval(function () {
-          log('Progress: ' + (torrent.progress * 100).toFixed(1) + '%')
-        }, 5000)
-
-        torrent.on('done', function () {
-          log('Progress: 100%')
-          clearInterval(interval)
-        })
-        
-        var promises = [];
-
-        // Render all files into to the page
-        torrent.files.forEach(function (torrentFile) {
-          torrentFile.appendTo('.log')
-          log('(Blob URLs only work if the file is loaded from a server. "http//localhost" works. "file://" does not.)')
-          
-          torrentFile.getBlobURL(function (err, url) {
-            if (err) return log(err.message)
-            log('File done.')
-            log('<a href="' + url + '">Download full file: ' + torrentFile.name + '</a>')
-          });
-          
-          promises.push(new Promise(function (resolve, reject) {
-              torrentFile.getBuffer(function (err, buffer) {
-                if (err) {
-                    log(err.message);
-                    reject(err);
-                }
-                 
-                resolve(new File(buffer, torrentFile.name));
-              });
-          }));
-        })
-        
-        Promise.all(promises).then(function (toSeed) { 
-            seedFiles(toSeed);
-        });
-      }
-
-      client.on('error', function (err) {
-        console.error('ERROR: ' + err.message)
+      const p = new SimplePeer({
+        initiator: location.hash === '#1',
+        trickle: false
       })
 
-      client.add(hash, {
-          announce: announcelist
-      }, onTorrent);
-      
-      log(hash);
+      p.on('error', err => console.log('error', err))
+
+      p.on('signal', data => {
+        console.log('SIGNAL', JSON.stringify(data))
+        document.querySelector('#outgoing').textContent = JSON.stringify(data)
+      })
+
+      document.querySelector('form').addEventListener('submit', ev => {
+        ev.preventDefault()
+        p.signal(JSON.parse(document.querySelector('#incoming').value))
+      })
+
+      p.on('connect', () => {
+        console.log('CONNECT')
+        p.send('whatever' + Math.random())
+      })
+
+      p.on('data', data => {
+        console.log('data: ' + data)
+      })
     </script>
   </body>
 </html>
